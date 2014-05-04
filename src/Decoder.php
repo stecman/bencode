@@ -27,28 +27,28 @@ class Decoder
      *
      * @var string
      */
-    private $source;
+    protected $source;
 
     /**
      * The length of the encoded source string
      *
      * @var integer
      */
-    private $sourceLength;
+    protected $decodeType;
 
     /**
      * The return type for the decoded value
      *
      * @var Bencode::TYPE_ARRAY|Bencode::TYPE_OBJECT
      */
-    private $decodeType;
+    protected $sourceLength;
 
     /**
      * The current offset of the parser.
      *
      * @var integer
      */
-    private $offset = 0;
+    protected $offset = 0;
 
     /**
      * Decoder constructor
@@ -58,13 +58,14 @@ class Decoder
      *   value should be returned as an object or an array.
      * @return void
      */
-    private function __construct($source, $decodeType)
+    protected function __construct(DataSource $source, $decodeType)
     {
         $this->source = $source;
-        $this->sourceLength = strlen($this->source);
-        $this->decodeType = in_array($decodeType, array(Bencode::TYPE_ARRAY, Bencode::TYPE_OBJECT))
-            ? $decodeType
-            : Bencode::TYPE_ARRAY;
+        $this->sourceLength = $source->getLength($source);
+        if ($decodeType != Bencode::TYPE_ARRAY && $decodeType != Bencode::TYPE_OBJECT) {
+            $decodeType = Bencode::TYPE_ARRAY;
+        }
+        $this->decodeType = $decodeType;
     }
 
     /**
@@ -76,12 +77,8 @@ class Decoder
      * @return mixed   Returns the appropriate data type for the decoded data.
      * @throws RuntimeException
      */
-    public static function decode($source, $decodeType = Bencode::TYPE_ARRAY)
+    public static function decode(DataSource $source, $decodeType = Bencode::TYPE_ARRAY)
     {
-        if (!is_string($source)) {
-            throw new RuntimeException("Argument expected to be a string; Got " . gettype($source));
-        }
-
         $decoder = new self($source, $decodeType);
         $decoded = $decoder->doDecode();
 
@@ -98,7 +95,7 @@ class Decoder
      * @return mixed   Returns the decoded value.
      * @throws RuntimeException
      */
-    private function doDecode()
+    protected function doDecode()
     {
         switch ($this->getChar()) {
 
@@ -130,30 +127,29 @@ class Decoder
      * @return integer Returns the decoded integer.
      * @throws RuntimeException
      */
-    private function decodeInteger()
+    protected function decodeInteger()
     {
-        $offsetOfE = strpos($this->source, "e", $this->offset);
-        if (false === $offsetOfE) {
-            throw new RuntimeException("Unterminated integer entity at offset $this->offset");
-        }
-
         $currentOffset = $this->offset;
-        if ("-" == $this->getChar($currentOffset)) {
+        $value = '';
+
+        if ('-' == $this->getChar($currentOffset)) {
+            $value = '-';
             ++$currentOffset;
         }
 
-        if ($offsetOfE === $currentOffset) {
-            throw new RuntimeException("Empty integer entity at offset $this->offset");
-        }
+        $char = $this->getChar($currentOffset);
 
-        while ($currentOffset < $offsetOfE) {
-            if (!ctype_digit($this->getChar($currentOffset))) {
-                throw new RuntimeException("Non-numeric character found in integer entity at offset $this->offset");
+        while ($char !== 'e') {
+            if (!ctype_digit($char)) {
+                throw new RuntimeException('Non-numeric character found in integer entity at offset ' . $this->offset);
             }
-            ++$currentOffset;
+            $value .= $char;
+            $char = $this->getChar(++$currentOffset);
         }
 
-        $value = substr($this->source, $this->offset, $offsetOfE - $this->offset);
+        if (trim($value,'-') === '') {
+            throw new RuntimeException('Integer was empty at offset ' . $this->offset);
+        }
 
         // One last check to make sure zero-padded integers don't slip by, as
         // they're not allowed per bencode specification.
@@ -162,7 +158,7 @@ class Decoder
             throw new RuntimeException("Illegal zero-padding found in integer entity at offset $this->offset");
         }
 
-        $this->offset = $offsetOfE + 1;
+        $this->offset += $currentOffset;
 
         // The +0 auto-casts the chunk to either an integer or a float(in cases
         // where an integer would overrun the max limits of integer types)
@@ -175,24 +171,31 @@ class Decoder
      * @return string  Returns the decoded string.
      * @throws RuntimeException
      */
-    private function decodeString()
+    protected function decodeString()
     {
         if ("0" === $this->getChar() && ":" != $this->getChar($this->offset + 1)) {
             throw new RuntimeException("Illegal zero-padding in string entity length declaration at offset $this->offset");
         }
 
-        $offsetOfColon = strpos($this->source, ":", $this->offset);
-        if (false === $offsetOfColon) {
-            throw new RuntimeException("Unterminated string entity at offset $this->offset");
+        $char = $this->getChar();
+        $length = '';
+
+        while ($char !== ':') {
+            if (!ctype_digit($char)) {
+                throw new RuntimeException('Unterminated string entity at offset ' . $this->offset);
+            }
+            $length .= $char;
+            $char = $this->getChar(++$this->offset);
         }
 
-        $contentLength = (int) substr($this->source, $this->offset, $offsetOfColon);
-        if (($contentLength + $offsetOfColon + 1) > $this->sourceLength) {
-            throw new RuntimeException("Unexpected end of string entity at offset $this->offset");
+        $length = (int) $length;
+
+        if (($length + $this->offset + 1) > $this->sourceLength) {
+            throw new RuntimeException('Unexpected end of string entity at offset ' . $this->offset);
         }
 
-        $value = substr($this->source, $offsetOfColon + 1, $contentLength);
-        $this->offset = $offsetOfColon + $contentLength + 1;
+        $value = $this->getChar(++$this->offset, $length);
+        $this->offset += $length;
 
         return $value;
     }
@@ -203,7 +206,7 @@ class Decoder
      * @return array   Returns the decoded array.
      * @throws RuntimeException
      */
-    private function decodeList()
+    protected function decodeList()
     {
         $list = array();
         $terminated = false;
@@ -233,7 +236,7 @@ class Decoder
      * @return array   Returns the decoded array.
      * @throws RuntimeException
      */
-    private function decodeDict()
+    protected function decodeDict()
     {
         $dict = array();
         $terminated = false;
@@ -276,17 +279,22 @@ class Decoder
      * @return string|false Returns the character found at the specified
      *   offset. If the specified offset is out of range, FALSE is returned.
      */
-    private function getChar($offset = null)
+    protected function getChar($offset = null, $length = 1)
     {
         if (null === $offset) {
             $offset = $this->offset;
         }
 
-        if (empty ($this->source) || $this->offset >= $this->sourceLength) {
+        if ($this->offset >= $this->sourceLength) {
             return false;
         }
 
-        return $this->source[$offset];
+        return $this->source->read($offset, $length);
+    }
+
+    protected function getLength($source)
+    {
+        return strlen($source);
     }
 
 }
