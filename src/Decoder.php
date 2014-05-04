@@ -158,7 +158,7 @@ class Decoder
             throw new RuntimeException("Illegal zero-padding found in integer entity at offset $this->offset");
         }
 
-        $this->offset += $currentOffset;
+        $this->offset = $currentOffset + 1;
 
         // The +0 auto-casts the chunk to either an integer or a float(in cases
         // where an integer would overrun the max limits of integer types)

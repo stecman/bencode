@@ -49,11 +49,13 @@ The above outputs the bencode encoded string `d5:arrayl3:one3:two5:threee7:integ
 ```php
 <?php
 
-use Rych\Bencode\Bencode;
+use Rych\Bencode;
+use Rych\Bencode\DataSource\String;
+require 'Rych/Bencode.php';
 
 $string = "d5:arrayl3:one3:two5:threee7:integeri42e6:string3:bare";
 
-print_r(Bencode::decode($string));
+print_r(Bencode::decode(new String($string));
 ```
 
 The above results the the following output:
@@ -71,6 +73,9 @@ Array
     [string] => bar
 )
 ```
+
+Note that large bencoded files can be read efficiently from disk using `Rych\Bencode\DataSource\FileHandle`, instead of loading them into a string.
+
 
 Installation via [Composer](http://getcomposer.org/)
 ------------
