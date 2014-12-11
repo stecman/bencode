@@ -2,10 +2,19 @@
 
 namespace Rych\Bencode;
 
+use PHPUnit_Framework_TestCase as TestCase;
 use Rych\Bencode\DataSource\FileHandle;
 
-class FileHandleTest extends \PHPUnit_Framework_TestCase
+/**
+ * Bencode file data source test
+ */
+class FileHandleTest extends TestCase
 {
+    /**
+     * Test that groups of characters can be read from a file
+     *
+     * @test
+     */
     public function testGetChar()
     {
         $raw = 'hello world';
@@ -34,6 +43,11 @@ class FileHandleTest extends \PHPUnit_Framework_TestCase
         fclose($handle);
     }
 
+    /**
+     * Test that a file's length is reported correctly
+     *
+     * @test
+     */
     public function testGetLength()
     {
         $raw = 'hello world';

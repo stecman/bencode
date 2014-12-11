@@ -50,12 +50,11 @@ The above outputs the bencode encoded string `d5:arrayl3:one3:two5:threee7:integ
 <?php
 
 use Rych\Bencode;
-use Rych\Bencode\DataSource\String;
 require 'Rych/Bencode.php';
 
 $string = "d5:arrayl3:one3:two5:threee7:integeri42e6:string3:bare";
 
-print_r(Bencode::decode(new String($string));
+print_r(Bencode::decode($string);
 ```
 
 The above results the the following output:
@@ -74,7 +73,20 @@ Array
 )
 ```
 
-Note that large bencoded files can be read efficiently from disk using `Rych\Bencode\DataSource\FileHandle`, instead of loading them into a string.
+### Decoding a file
+
+Large bencoded files can be read efficiently from disk by passing an instance of `Rych\Bencode\DataSource\FileHandle` to `Bencode::decode`, instead of loading the file into a string.
+
+```php
+<?php
+
+use Rych\Bencode;
+use Rych\Bencode\DataSource\FileHandle;
+require 'Rych/Bencode.php';
+
+$file = fopen('path/to/file.bin', 'r');
+$decoded = Bencode::decode( new FileHandle($file) );
+```
 
 
 Installation via [Composer](http://getcomposer.org/)

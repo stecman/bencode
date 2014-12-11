@@ -12,6 +12,8 @@
 
 namespace Rych\Bencode;
 
+use Rych\Bencode\DataSource;
+use Rych\Bencode\DataSource\String;
 use Rych\Bencode\Exception\RuntimeException;
 
 /**
@@ -53,13 +55,18 @@ class Decoder
     /**
      * Decoder constructor
      *
-     * @param  string  $source The bencode encoded source.
-     * @param  string  $decodeType Flag used to indicate whether the decoded
-     *   value should be returned as an object or an array.
+     * @param DataSource|string $source The bencode string to be decoded.
+     * @param string $decodeType currently unused.
      * @return void
      */
-    protected function __construct(DataSource $source, $decodeType)
+    protected function __construct($source, $decodeType)
     {
+        if (is_string($source)) {
+            $source = new String($source);
+        } else if (!$source instanceof DataSource) {
+            throw new RuntimeException("Argument expected to be string or Rych\Bencode\DataSource; Got " . gettype($source));
+        }
+
         $this->source = $source;
         $this->sourceLength = $source->getLength($source);
         if ($decodeType != Bencode::TYPE_ARRAY && $decodeType != Bencode::TYPE_OBJECT) {
@@ -77,8 +84,12 @@ class Decoder
      * @return mixed   Returns the appropriate data type for the decoded data.
      * @throws RuntimeException
      */
-    public static function decode(DataSource $source, $decodeType = Bencode::TYPE_ARRAY)
+    public static function decode($source, $decodeType = Bencode::TYPE_ARRAY)
     {
+        if (!$source instanceof DataSource) {
+            $source = new String($source);
+        }
+        
         $decoder = new self($source, $decodeType);
         $decoded = $decoder->doDecode();
 

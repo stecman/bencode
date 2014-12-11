@@ -15,8 +15,16 @@ namespace Rych\Bencode;
 use PHPUnit_Framework_TestCase as TestCase;
 use Rych\Bencode\DataSource\String;
 
+/**
+ * Bencode string data source test
+ */
 class StringTest extends TestCase
 {
+    /**
+     * Test that groups of characters can be read from a string
+     *
+     * @test
+     */
     public function testGetChar()
     {
     	$raw = 'hello world';
@@ -45,6 +53,11 @@ class StringTest extends TestCase
         }
     }
 
+    /**
+     * Test that a string's length is reported correctly
+     *
+     * @test
+     */
     public function testGetLength()
     {
         $raw = 'hello world';
